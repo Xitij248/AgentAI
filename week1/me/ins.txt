@@ -1,0 +1,8 @@
+And now, any time that we have code like:
+openai = OpenAI()
+You can use this as a direct replacement:
+openai = OpenAI(base_url='http://localhost:11434/v1', api_key='ollama')
+And also replace model names like gpt-4o-mini with llama3.2.
+
+gemini = OpenAI(api_key=google_api_key, base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
+model_name = "gemini-2.0-flash"
