@@ -2,3 +2,4 @@
 personal training material and projects
 
 Week1 - Contains the python file for deploying self bot for linkedin
+Guides - basic guides required for agentic ai project
