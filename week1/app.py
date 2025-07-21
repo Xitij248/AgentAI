@@ -5,7 +5,12 @@ import os
 import requests
 from pypdf import PdfReader
 import gradio as gr
+from openai.types.chat import ChatCompletionToolParam
+from openai.types.chat.completion_create_params import Function
+from typing import List
 
+# Get the absolute path to the directory where the script is located
+script_dir = os.path.dirname(os.path.abspath(__file__))
 
 load_dotenv(override=True)
 
@@ -28,7 +33,7 @@ def record_unknown_question(question):
     push(f"Recording {question}")
     return {"recorded": "ok"}
 
-record_user_details_json = {
+record_user_details_json: Function = {
     "name": "record_user_details",
     "description": "Use this tool to record that a user is interested in being in touch and provided an email address",
     "parameters": {
@@ -41,19 +46,18 @@ record_user_details_json = {
             "name": {
                 "type": "string",
                 "description": "The user's name, if they provided it"
-            }
-            ,
+            },
             "notes": {
                 "type": "string",
                 "description": "Any additional information about the conversation that's worth recording to give context"
             }
         },
-        "required": ["email"],
-        "additionalProperties": False
-    }
+        "required": ["email"]
+    },
+    "strict": True
 }
 
-record_unknown_question_json = {
+record_unknown_question_json: Function = {
     "name": "record_unknown_question",
     "description": "Always use this tool to record any question that couldn't be answered as you didn't know the answer",
     "parameters": {
@@ -64,28 +68,37 @@ record_unknown_question_json = {
                 "description": "The question that couldn't be answered"
             },
         },
-        "required": ["question"],
-        "additionalProperties": False
-    }
+        "required": ["question"]
+    },
+    "strict": True
 }
 
-tools = [{"type": "function", "function": record_user_details_json},
-        {"type": "function", "function": record_unknown_question_json}]
+tools: List[ChatCompletionToolParam] = [
+    {"type": "function", "function": record_user_details_json},
+    {"type": "function", "function": record_unknown_question_json}
+]
 
 
 class Me:
 
     def __init__(self):
         self.gemini = OpenAI(api_key=os.getenv("GOOGLE_API_KEY"), base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
-        self.model_name = "gemini-2.0-flash"
+        self.model_name = "gemini-2.5-flash"
         self.name = "Kshitij Singh Sagar"
-        reader = PdfReader("me/linkedin.pdf")
+        self.email = "xitij248@gmail.com"
+        self.phone = "+91 8310688526"
+        self.linkedin_profile = "https://www.linkedin.com/in/kshitij-singh-514353148/"
+        # Construct absolute paths to the files
+        linkedin_path = os.path.join(script_dir, "me", "linkedin.pdf")
+        summary_path = os.path.join(script_dir, "me", "summary.txt")
+
+        reader = PdfReader(linkedin_path)
         self.linkedin = ""
         for page in reader.pages:
             text = page.extract_text()
             if text:
                 self.linkedin += text
-        with open("me/summary.txt", "r", encoding="utf-8") as f:
+        with open(summary_path, "r", encoding="utf-8") as f:
             self.summary = f.read()
 
 
@@ -101,13 +114,14 @@ class Me:
         return results
     
     def system_prompt(self):
-        system_prompt = f"You are acting as {self.name}. You are answering questions on {self.name}'s website, \
+        system_prompt = f"You are acting as {self.name}. You are answering questions on {self.name}'s LinkedIn profile, \
 particularly questions related to {self.name}'s career, background, skills and experience. \
-Your responsibility is to represent {self.name} for interactions on the website as faithfully as possible. \
+Your responsibility is to represent {self.name} for interactions on the profile as faithfully as possible. \
 You are given a summary of {self.name}'s background and LinkedIn profile which you can use to answer questions. \
-Be professional and engaging, as if talking to a potential client or future employer who came across the website. \
+Be professional and engaging, as if talking to a potential future employer who came across the profile. \
 If you don't know the answer to any question, use your record_unknown_question tool to record the question that you couldn't answer, even if it's about something trivial or unrelated to career. \
-If the user is engaging in discussion, try to steer them towards getting in touch via email; ask for their email and record it using your record_user_details tool. "
+If the user is engaging in discussion, try to steer them towards getting in touch via email; ask for their email and record it using your record_user_details tool. \
+When you don't know an answer ask them to reach out to {self.name} on {self.email} or linkedin profile {self.linkedin_profile} or phone {self.phone} directly."
 
         system_prompt += f"\n\n## Summary:\n{self.summary}\n\n## LinkedIn Profile:\n{self.linkedin}\n\n"
         system_prompt += f"With this context, please chat with the user, always staying in character as {self.name}."
